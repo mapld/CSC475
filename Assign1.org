@@ -1,0 +1,628 @@
+
+* Assignment 1 
+:PROPERTIES: 
+:EXPORT_FILE_NAME: CSC475Assign1 
+:AUTHOR: Alex Rehnby-Martin
+:END:
+#+LaTeX_CLASS_OPTIONS: [article,letterpaper,times,12pt,listings-bw,microtype]
+
+#+NAME: common_src
+#+BEGIN_SRC python :exports code
+import matplotlib, numpy
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+fig=plt.figure(figsize=(6,3))
+#+END_SRC
+
+** Question #1 
+*** Q1.1
+Frequencies: 
+#+NAME: sin_create
+#+BEGIN_SRC python :noweb strip-export :exports code :tangle ass1/sin_wave.py 
+<<common_src>>
+fs = 44100 # sample rate
+x = numpy.arange(fs)
+
+def sinWave(frequency, amplitude, phase=0, duration = 1.0):
+    sNum = fs * duration
+    return amplitude * numpy.sin(2*numpy.pi*frequency*x/sNum + phase)
+
+#+END_SRC
+
+#+NAME: sin_frequencies
+#+begin_src python :exports code :noweb strip-export 
+<<sin_create>>
+
+frequencies = []
+frequencies.append(200)
+frequencies.append(440)
+frequencies.append(500)
+amplitudes = []
+amplitudes.append(0.5)
+amplitudes.append(1.0)
+amplitudes.append(2.0)
+amplitudes.append(3.0)
+sinWaves = []
+for f in frequencies:
+    for a in amplitudes:
+        sinWaves.append({'frequency' : f, 'amplitude' : a, 'samples' : sinWave(f,a)})
+
+  
+#+end_src
+
+#+NAME: sin_frequencies_demo 
+#+begin_src python :results file :exports both :noweb strip-export 
+<<sin_frequencies>>
+for s in sinWaves:
+      samples = s['samples']
+      plt.plot(x[0:1000], samples[0:1000])
+
+fig.tight_layout()
+plt.savefig('images/python-matplot-fig.png')
+return 'images/python-matplot-fig.png'
+#+end_src 
+
+#+RESULTS: sin_frequencies_demo
+[[file:images/python-matplot-fig.png]]
+
+Amplitude detection functions:
+#+NAME: amplitude_detection 
+#+BEGIN_SRC python :noweb strip-export :exports code 
+  <<common_src>>
+  def peakAmplitude(samples):
+      highest = 0;
+      for s in samples:
+          n = numpy.absolute(s)
+          if n > highest:
+              highest = n
+      return highest
+
+  def peakRMS(samples):
+      return numpy.sqrt(numpy.mean(numpy.square(samples)))
+#+END_SRC
+
+#+NAME: estimate_amplitude
+#+BEGIN_SRC python :exports both :noweb strip-export :results output :tangle ass1/amplitude_estimation.py
+<<sin_frequencies>>
+<<amplitude_detection>>
+data = [] 
+for s in sinWaves:
+    d = {}
+    d['frequency'] = s['frequency']
+    d['amplitude'] = s['amplitude']
+    d['peak'] = peakAmplitude(s['samples'])
+    d['RMS'] = peakRMS(s['samples'])
+    d['expectedRMS'] = d['amplitude']/numpy.sqrt(2)
+    data.append(d)
+print "{:<10} {:<10} {:<20} {:<20} {:<10}".format('Frequency','Amplitude','peakAmp', 'peakRMS', 'expectedRMS')
+for d in data:
+  print "{:<10} {:<10} {:<20} {:<20} {:<10}".format(d['frequency'], d['amplitude'], d['peak'], d['RMS'], d['expectedRMS'] )
+#+END_SRC
+
+#+RESULTS: estimate_amplitude
+#+begin_example
+Frequency  Amplitude  peakAmp              peakRMS              expectedRMS
+200        0.5        0.499996828227       0.353553390593       0.353553390593
+200        1.0        0.999993656454       0.707106781187       0.707106781187
+200        2.0        1.99998731291        1.41421356237        1.41421356237
+200        3.0        2.99998096936        2.12132034356        2.12132034356
+440        0.5        0.499999873129       0.353553390593       0.353553390593
+440        1.0        0.999999746258       0.707106781187       0.707106781187
+440        2.0        1.99999949252        1.41421356237        1.41421356237
+440        3.0        2.99999923877        2.12132034356        2.12132034356
+500        0.5        0.499996828227       0.353553390593       0.353553390593
+500        1.0        0.999993656454       0.707106781187       0.707106781187
+500        2.0        1.99998731291        1.41421356237        1.41421356237
+500        3.0        2.99998096936        2.12132034356        2.12132034356
+#+end_example
+
+*** Q1.2 
+#+NAME: harmonic_mix
+#+BEGIN_SRC python :results file :exports code :noweb strip-export 
+<<sin_create>>
+def createHarmonicMix(baseFreq, a1, a2, a3, p1=0, p2=0, p3=0):
+    f1 = sinWave(baseFreq, a1, p1)
+    f2 = sinWave(baseFreq*2, a2, p2)
+    f3 = sinWave(baseFreq*3, a3, p3)
+    return [f1+f2+f3, f1, f2, f3]
+#+END_SRC 
+
+With no phase: 
+#+NAME: defined_mix
+#+BEGIN_SRC python :noweb strip-export :exports code 
+<<harmonic_mix>>
+freq = 440
+mixResult = createHarmonicMix(freq, 1.0, 0.5, 0.33, 0, 0, 0)
+mix = mixResult[0]
+
+plt.plot(x[0:1000], mix[0:1000])
+
+plt.savefig('images/q2p1.png')
+#+END_SRC
+
+#+BEGIN_SRC python :noweb strip-export :results file :exports both
+<<defined_mix>>
+return 'images/q2p1.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:images/q2p1.png]]
+
+With random phase:
+#+NAME: random_mix
+#+BEGIN_SRC python :noweb strip-export :exports code 
+<<harmonic_mix>>
+freq = 440
+r = numpy.random.uniform(0,2*numpy.pi,3)
+randomMixResult = createHarmonicMix(freq, 1.0, 0.5, 0.33, r[0], r[1], r[2])
+randomMix = randomMixResult[0]
+
+plt.plot(x[0:1000], randomMix[0:1000])
+
+plt.savefig('images/q2p2.png')
+#+END_SRC
+
+#+BEGIN_SRC python :noweb strip-export :results file :exports both
+<<random_mix>>
+return 'images/q2p2.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:images/q2p2.png]]
+*** Q1.3
+#+NAME: generate_audio
+#+BEGIN_SRC python 
+  import wave
+  import struct
+
+  def saveWav(samples, filename):
+      wavFile = wave.open(filename, "w")
+      nchannels = 1
+      sampwidth = 2
+      nframes = len(samples)
+      comptype = "NONE"
+      compname = "not compressed"
+      wavFile.setparams((nchannels, sampwidth, fs, nframes, comptype, compname))
+
+      for sample in samples:
+          clampedSample = numpy.median([sample, -1.0, 1.0])
+          #clampedSample = sample
+          wavFile.writeframes(struct.pack('h', int(16384.0*clampedSample)))
+
+      wavFile.close()
+#+END_SRC
+
+
+Defined mix wav file:
+#+BEGIN_SRC python :results file :exports both :noweb strip-export :tangle ass1/generate_audio.py 
+<<defined_mix>>
+<<generate_audio>>
+
+saveWav(mix, "sound/q3p1.wav")
+return "sound/q3p1.wav"
+#+END_SRC
+
+#+RESULTS:
+[[file:sound/q3p1.wav]]
+
+#+BEGIN_SRC python :results file :exports both :noweb strip-export 
+<<defined_mix>>
+plt.plot(x[0:1000], mix[0:1000])
+plt.plot(x[0:1000], mixResult[1][0:1000])
+plt.plot(x[0:1000], mixResult[2][0:1000])
+plt.plot(x[0:1000], mixResult[3][0:1000])
+
+plt.savefig('images/q3p1.png')
+return 'images/q3p1.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:images/q3p1.png]]
+
+[[file:sound/spectrogram1.png]]
+Random mix wav file:
+#+BEGIN_SRC python :results file :exports both :noweb strip-export 
+<<generate_audio>>
+<<random_mix>>
+
+saveWav(randomMix, "sound/q3p2.wav")
+return "sound/q3p2.wav"
+#+END_SRC
+
+#+RESULTS:
+[[file:sound/q3p2.wav]]
+
+#+BEGIN_SRC python :results file :exports both :noweb strip-export 
+<<random_mix>>
+plt.plot(x[0:1000], randomMix[0:1000])
+plt.plot(x[0:1000], randomMixResult[1][0:1000])
+plt.plot(x[0:1000], randomMixResult[2][0:1000])
+plt.plot(x[0:1000], randomMixResult[3][0:1000])
+
+plt.savefig('images/q3p2.png')
+return 'images/q3p2.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:images/q3p2.png]]
+
+[[file:sound/spectrogram2.png]]
+
+Observation:
+While the combined wave of the sound with random phases looks different to the zero phase one, it sounds the same and the spectrogram looks very similar 
+
+*** Melody! 
+#+BEGIN_SRC python :results file :exports both :noweb strip-export :tangle sin_wave_melody.py 
+<<sin_create>>
+<<generate_audio>>
+
+
+c = sinWave(261.6, 1.0, phase=0, duration = 1.0)
+e = sinWave(311.1, 1.0, phase=0, duration = 1.0)
+g = sinWave(392, 1.0, phase=0, duration = 1.0)
+
+melody = numpy.concatenate((c, e, g, e, g, c))
+
+saveWav(melody, "CSC475/melody.wav")
+return "CSC475/melody.wav"
+#+END_SRC
+
+#+RESULTS:
+[[file:CSC475/melody.wav]]
+
+*** Q1.4 
+#+NAME: noisy_sin
+#+BEGIN_SRC python :results output :exports both :noweb strip-export  
+<<sin_create>>
+<<amplitude_detection>>
+def createNoise(db, signalAmplitude, duration):
+    ampRatio = numpy.power(10., db/20)
+    noiseAmplitude = signalAmplitude / ampRatio;
+    r = numpy.random.uniform(-1.0,1.0,duration*fs)
+    # rms amplitude to peak amplitude ratio for uniform distribution 
+    return r * noiseAmplitude * numpy.sqrt(3)
+
+def createNoisySinWave(freq, amp, db, duration = 1.0):
+    s = sinWave(freq, amp)  
+    y = createNoise(db, peakRMS(s), duration)
+    return s + y
+
+noisySinWave = createNoisySinWave(440, 1.0, -20)
+
+#+END_SRC
+
+100db
+#+BEGIN_SRC python :results file :exports both :noweb strip-export :tangle ass1/noisy_sin.py 
+<<generate_audio>>
+<<noisy_sin>>
+
+noisySinWave = createNoisySinWave(440, 1.0, 100)
+
+saveWav(noisySinWave , "sound/q4p1.wav")
+return "sound/q4p1.wav"
+#+END_SRC
+
+#+RESULTS:
+[[file:sound/q4p1.wav]]
+
+[[file:sound/q4p1.png]]
+
+20db
+#+BEGIN_SRC python :results file :exports both :noweb strip-export 
+<<generate_audio>>
+<<noisy_sin>>
+
+noisySinWave = createNoisySinWave(440, 1.0, 20)
+
+saveWav(noisySinWave , "sound/q4p2.wav")
+return "sound/q4p2.wav"
+#+END_SRC
+
+#+RESULTS:
+[[file:sound/q4p2.wav]]
+
+[[file:sound/q4p2.png]]
+
+Sounds distorted
+
+0db
+#+BEGIN_SRC python :results file :exports both :noweb strip-export 
+<<generate_audio>>
+<<noisy_sin>>
+
+noisySinWave = createNoisySinWave(440, 1.0, 0)
+
+saveWav(noisySinWave , "sound/q4p3.wav")
+return "sound/q4p3.wav"
+#+END_SRC
+
+#+RESULTS:
+[[file:sound/q4p3.wav]]
+
+[[file:sound/q4p3.png]]
+Still a visually recognizable pattern but sounds like noise
+
+*** Q1.5 
+The inner product is the projection of one vector onto another, so the number resulting from projecting the unit vector should be x where x * 1.0 = amplitude of the other vector. However, we need to multiply by 2 to get the correct amplitude. 
+#+NAME: inner_prod_amplitude
+#+BEGIN_SRC python :exports code :noweb strip-export :tangle ass1/inner_product_amp.py 
+<<sin_create>>
+def innerProdAmp(freq, signal, duration=1.0, phase=0):
+    unitSin = sinWave(freq, 1.0, phase, duration)
+    return numpy.dot(signal,unitSin) * 2 / len(unitSin)
+#+END_SRC
+
+#+BEGIN_SRC python :exports both :noweb strip-export 
+<<inner_prod_amplitude>>
+w = sinWave(440, 4.0, numpy.pi, 2.0)
+return innerProdAmp(freq, w, 2.0, numpy.pi)
+#+END_SRC
+
+#+RESULTS:
+: 4.0
+
+*** Q1.6 
+first pick 5 noisy sin waves ranging from barely perceptible noise to barely perceptible sin wave 
+test 3 amplitude estimator * 5 sin waves
+plot results
+
+#+BEGIN_SRC python :results file :exports both :noweb strip-export 
+<<generate_audio>>
+<<noisy_sin>>
+<<inner_prod_amplitude>>
+<<amplitude_detection>>
+
+ipAmps = []
+peakAmps = []
+rmsAmps = []
+dbs = [10,20,40,60,100]
+
+freq = 440
+
+db = dbs[0] 
+noisySinWave = createNoisySinWave(440, 1.0, db)
+ipAmps.append(innerProdAmp(freq, noisySinWave))
+peakAmps.append(peakAmplitude(noisySinWave))
+rmsAmps.append(peakRMS(noisySinWave))
+
+db = dbs[1] 
+noisySinWave = createNoisySinWave(440, 1.0, db)
+ipAmps.append(innerProdAmp(freq, noisySinWave))
+peakAmps.append(peakAmplitude(noisySinWave))
+rmsAmps.append(peakRMS(noisySinWave))
+
+db = dbs[2]
+noisySinWave = createNoisySinWave(440, 1.0, db)
+ipAmps.append(innerProdAmp(freq, noisySinWave))
+peakAmps.append(peakAmplitude(noisySinWave))
+rmsAmps.append(peakRMS(noisySinWave))
+
+db = dbs[3] 
+noisySinWave = createNoisySinWave(440, 1.0, db)
+ipAmps.append(innerProdAmp(freq, noisySinWave))
+peakAmps.append(peakAmplitude(noisySinWave))
+rmsAmps.append(peakRMS(noisySinWave))
+
+db = dbs[4] 
+noisySinWave = createNoisySinWave(440, 1.0, db)
+ipAmps.append(innerProdAmp(freq, noisySinWave))
+peakAmps.append(peakAmplitude(noisySinWave))
+rmsAmps.append(peakRMS(noisySinWave))
+
+realAmps=numpy.full(5,1)
+plt.plot(dbs, peakAmps, 'gs', label='peak amplitude')
+plt.plot(dbs, rmsAmps, 'bs', label='rms amplitude')
+plt.plot(dbs, ipAmps, 'ys', label='inner product amplitude')
+plt.plot(dbs, realAmps, 'r8', label='actual amplitude')
+plt.legend()
+plt.xlim([-20,120])
+plt.ylim([0.5,2.5])
+plt.savefig('images/q6p1.png')
+return 'images/q6p1.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:images/q6p1.png]]
+
+The peak and rms amplitudes are accurate for high dbs but for the more noisy signals, inner product amplitude is much better and remains accurate all the way down to 10db  
+
+*** Q1.7
+#+BEGIN_SRC python :exports both :noweb strip-export
+<<harmonic_mix>>
+<<inner_prod_amplitude>>
+
+mix = createHarmonicMix(220, 1.0,0.5,0.2)[0]
+
+amp220 = innerProdAmp(220, mix)
+amp440 = innerProdAmp(440, mix)
+amp660 = innerProdAmp(660, mix)
+return [amp220, amp440, amp660]
+
+#+END_SRC
+
+#+RESULTS:
+| 0.9999999999999997 | 0.5000000000000002 | 0.19999999999999962 |
+
+This uses the same formula as question 1.5. It remains accurate even when probing against a combination of frequencies. The same should remain true for a mixture of 4 samples, even if noise is added in, as demonstrated in 1.6. In order to adjust for 4 signals we'd just do the same as above, but with 4 signals instead of 3.
+
+*** Q1.8
+#+NAME: harmonic_mix_q8
+#+BEGIN_SRC python :exports code :noweb strip-export :results file
+<<inner_prod_amplitude>>
+<<harmonic_mix>>
+
+mix = createHarmonicMix(220, 1.0,0.5,0.2, numpy.pi/2, numpy.pi*3/4, 3*numpy.pi/2)[0]
+phases = numpy.linspace(0, 2*numpy.pi, fs)
+#+END_SRC
+
+#+BEGIN_SRC python :exports both :noweb strip-export :results file
+<<harmonic_mix_q8>>
+amps = []
+for phase in phases:
+  amp = innerProdAmp(220, mix, 1.0, phase)
+  amps.append(amp)
+
+plt.plot(phases, amps)
+plt.savefig('images/q8p1.png')
+return 'images/q8p1.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:images/q8p1.png]]
+
+We see that this forms a sin wave, and the correct amplitude is the peak of this sin wave at the phase pi/2.
+
+#+BEGIN_SRC python :exports both :noweb strip-export :results file
+<<harmonic_mix_q8>>
+amps = []
+for phase in phases:
+  amp = innerProdAmp(660, mix, 1.0, phase)
+  amps.append(amp)
+
+plt.plot(phases, amps)
+plt.savefig('images/q8p2.png')
+return 'images/q8p2.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:images/q8p2.png]]
+
+Again we have a signal where the peak is the correct amplitude, and it lies at the correct phase of 3/2 pi.
+
+We can generalize this by getting a sliding picture of the estimated amplitude and returning the peak and the location of the peak. Since checking every single value is very slow, we can skip around and then narrow in on the peak.
+
+#+BEGIN_SRC python :exports both :noweb strip-export :results output
+  <<harmonic_mix_q8>>
+
+  def getAmplitudeAndPhaseShift(freq, samples, duration):
+      shortPhases = numpy.linspace(0, 2*numpy.pi, int(numpy.sqrt(fs)))
+      increasing = False
+      old = innerProdAmp(freq, samples, 1.0, 0)
+      oldPhase = 0
+      phaseStart = 0
+      phaseEnd = shortPhases[1]
+      for phase in shortPhases:
+          cur = innerProdAmp(freq, samples, 1.0, phase)
+          if increasing:
+              if cur < old:
+                  phaseStart = oldPhase 
+                  phaseEnd = phase 
+                  break
+          if cur > old:
+              increasing = True
+          old = cur
+          oldPhase = phase
+
+      phases = numpy.linspace(phaseStart, phaseEnd, numpy.sqrt(fs))
+      amps = []
+      old = innerProdAmp(freq, samples, 1.0, phaseStart)
+      peak = 0
+      peakPhase = 0
+      for phase in phases:
+          cur = innerProdAmp(freq, samples, 1.0, phase)
+          if(cur > peak):
+              peak = cur
+              peakPhase = phase
+
+      return [peak, peakPhase]
+
+  print getAmplitudeAndPhaseShift(220, mix, 1.0)
+  print getAmplitudeAndPhaseShift(440, mix, 1.0)
+  print getAmplitudeAndPhaseShift(660, mix, 1.0)
+#+END_SRC
+
+#+RESULTS:
+: [0.99999999935341655, 1.570760366163803]
+: [0.49999999927259348, 2.3561405492457044]
+: [0.19999435134386725, 4.71990475228323]
+
+** Question #2
+*** Q2.1
+#+NAME: wav_file_prereq
+#+BEGIN_SRC python :exports code :noweb strip-export 
+  <<common_src>>
+  import wave
+
+  wavFile = wave.open('sound/q3p1.wav', 'r')
+  frameNum = 2048 / (wavFile.getsampwidth() + wavFile.getnchannels())
+
+  outWavFile = wave.open('sound/s2q1.wav', 'w')
+  outWavFile.setparams(wavFile.getparams())
+#+END_SRC
+
+
+#+BEGIN_SRC python :exports both :noweb strip-export :results file 
+  <<wav_file_prereq>>
+  frames = wavFile.readframes(int(frameNum))
+  while frames:
+      workingFrames = bytearray(frames)
+      for i in range(0, len(workingFrames)):
+        if(workingFrames[i] < 255):
+          workingFrames[i] += 1
+      frames = wavFile.readframes(int(frameNum))
+      outWavFile.writeframes(workingFrames)
+
+  return 'sound/s2q1.wav'
+#+END_SRC
+
+#+RESULTS:
+[[file:sound/s2q1.wav]]
+
+[[file:sound/s2q1.png]]
+*** Q2.2
+#+BEGIN_SRC python :exports both :noweb strip-export :results file :tangle ass1/use_fft.py 
+<<harmonic_mix>>
+
+mix = createHarmonicMix(220, 1.0,0.5,0.2)[0]
+
+fft = numpy.fft.fft(mix)
+
+fft = fft / len(fft)
+
+realPartCount = len(fft)/2
+plt.plot(numpy.abs(fft[:realPartCount])*2)
+plt.savefig('images/s2q2.png')
+
+return 'images/s2q2.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:images/s2q2.png]]
+
+Again multiply by 2 to get the actual amplitudes of the frequencies present
+
+
+*** Q2.3 
+#+BEGIN_SRC python :exports code :noweb strip-export :results file :tangle ass1/dft_implementation.py 
+  <<harmonic_mix>>
+  mix = createHarmonicMix(220, 1.0, 0.5, 0.2)[0]
+
+  def fft(realInput):
+    n = len(realInput)
+    realOutput = numpy.zeros(n) 
+    imaginaryOutput = numpy.zeros(n) 
+
+    n = len(realInput)
+    #for each phasor
+    for k in range(0, 700):
+      # in time
+      for t in range(0, n):
+        angle = 2 * numpy.pi * k * t / n
+        realOutput[k] += realInput[t] * numpy.cos(angle)
+        imaginaryOutput[k] -= realInput[t] * numpy.sin(angle)
+    return realOutput/fs, imaginaryOutput/fs
+
+  real, imag = fft(mix)
+  #abs value
+  spect = numpy.sqrt(real*real+imag*imag)
+
+  realSpecNum = len(spect) / 2
+  plt.plot(spect[:realSpecNum]*2)
+  plt.savefig('images/s2q3.png')
+
+  return 'images/s2q3.png'
+#+END_SRC
+
+[[file:images/s2q3.png]]
+
+The results are the same, but much slower

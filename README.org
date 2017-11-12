@@ -1,0 +1,6 @@
+* CSC475: Music Retrieval
+Class of Fall 2017
+
+Signal Processing, Feature Extraction, Machine Learning
+
+Python code is exported using org-babel, different files will repeat some code due to the export process. 

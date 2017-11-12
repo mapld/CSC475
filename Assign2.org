@@ -1,0 +1,581 @@
+#+NAME: common_src
+#+BEGIN_SRC python :exports code
+import matplotlib, numpy
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
+import wave
+import struct
+from scipy.io.wavfile import read as wavread
+fig=plt.figure(figsize=(6,3))
+fs = 44100 # sample rate
+#+END_SRC
+
+* Question #1
+  
+** Simple F0 Frequency Estimation
+#+NAME: read_wav
+#+BEGIN_SRC python :exports code :noweb strip-export 
+<<common_src>>
+def readWavSamples(filename):
+    [samplerate, vals] = wavread(filename)
+
+    if isinstance(vals[0], numpy.ndarray):
+      print "reading stereo file"
+      samples = (vals[:,0]/2 + vals[:,1]/2 ) / 31
+    else:
+      print "reading mono file"
+      samples = vals / 31
+    return samples
+#+END_SRC
+
+#+NAME: wav_file_fft
+#+BEGIN_SRC python :exports code :noweb strip-export :tangle ass2/fft_f0_estimation.py 
+  <<read_wav>>
+
+  def getBinFreq(filename):
+    samples = readWavSamples(filename)
+
+    frameNum = 2048 
+    peaks = numpy.zeros(len(samples)/frameNum + 1)
+    i = 0
+    cur = 0 
+
+    while cur < len(samples): 
+        workingFrames = samples[cur:cur+2048]
+        fft = numpy.fft.fft(workingFrames, frameNum)
+        fft = fft / len(fft)
+        rCount = len(fft) / 2
+        realFft = numpy.abs(fft[:rCount])*2
+        maxAmp = 0
+        for idx in range(0, len(realFft)): 
+          val = realFft[idx]
+          if val > maxAmp:
+            peaks[i] = idx
+            maxAmp = val
+        i += 1
+        cur += 2048
+
+    return peaks * 44100 / 2048
+#+END_SRC
+*** Sin wave melody
+
+#+NAME: melody_f0
+#+begin_src python :results file :exports both :noweb strip-export 
+<<wav_file_fft>>
+peaks = getBinFreq("melody.wav")
+#x = numpy.arange(len(peaks)) * 44100 / 2048
+
+plt.plot(peaks)
+plt.savefig('a2q1melody.png')
+return 'a2q1melody.png'
+#+END_SRC 
+
+#+RESULTS: melody_f0
+[[file:a2q1melody.png]]
+
+*** Sung melody
+#+NAME: sung_melody_f0
+#+begin_src python :results file :exports both :noweb strip-export 
+<<wav_file_fft>>
+peaks = getBinFreq("sing.wav")
+x = numpy.arange(fs)
+
+print(peaks)
+
+plt.plot(peaks)
+plt.savefig('a2q1sung.png')
+return 'a2q1sung.png'
+#+END_SRC 
+
+#+RESULTS: sung_melody_f0
+[[file:a2q1sung.png]]
+
+These results are much less accurate
+
+*** Qbhexamples.wav
+#+NAME: qbhexamples_f0
+#+begin_src python :results file :exports both :noweb strip-export 
+from scipy.io.wavfile import read as wavread
+
+<<wav_file_fft>>
+peaks = getBinFreq("qbhexamples.wav")
+x = numpy.arange(fs)
+
+plt.plot(peaks)
+plt.savefig('a2q1example.png')
+return 'a2q1example.png'
+#+END_SRC 
+
+#+RESULTS: qbhexamples_f0
+[[file:a2q1example.png]]
+These results are not very accurate, with massive peaks at some points, probably due to noise at quieter moments.
+** Autocorellation 
+#+NAME: auto_cor 
+#+BEGIN_SRC python :exports code :noweb strip-export 
+def getAutoCorellation(samples, size=2048):
+  fft = numpy.fft.rfft(samples, size)
+  # reverse fft of fft * its complex conjugate 
+  p1 = fft * numpy.conj(fft)
+  p2 = p1 * numpy.conj(p1)
+  return numpy.fft.irfft(p2 , size) 
+#+END_SRC 
+
+#+NAME: get_peak 
+#+BEGIN_SRC python :exports code :noweb strip-export 
+def getMaxPeak(samples):
+  maxVal = 0
+  maxI = 0 
+  start = False 
+  for i in range(1,len(samples)/2):
+    if samples[i] < 0:
+      start = True
+    if not start:
+      continue
+    if samples[i] > samples[i-1] and samples[i] > samples[i+1]:
+       if(samples[i] > maxVal):
+         maxVal = samples[i]
+         maxI = i
+  return maxI
+#+END_SRC 
+
+#+NAME: auto_cor_estimation
+#+BEGIN_SRC python :exports code :noweb strip-export :tangle ass2/autocor_f0_estimation.py 
+<<auto_cor>>
+<<get_peak>>
+<<read_wav>>
+def autoCorFreqEstimateOverTime(filename):
+    samples = readWavSamples(filename) 
+    frameNum = 2048 
+    
+    peaks = numpy.zeros(len(samples)/frameNum + 1)
+    i = 0
+    cur = 0 
+
+    while cur < len(samples):
+      workingFrames = samples[cur:cur+2048]
+      acor = getAutoCorellation(workingFrames)
+      #return acor
+      peaks[i] = getMaxPeak(acor)
+      cur += frameNum
+      i += 1 
+    return 44100 / peaks 
+
+#+END_SRC 
+
+*** Sin wave melody
+#+begin_src python :results file :exports both :noweb strip-export 
+<<common_src>>
+<<auto_cor_estimation>>
+freqs = autoCorFreqEstimateOverTime('melody.wav')
+
+#print freqs
+
+plt.plot(freqs)
+#plt.ylim([100,300])
+plt.savefig('a2autocor1.png')
+return 'a2autocor1.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:a2autocor1.png]]
+*** Sung melody
+#+begin_src python :results file :exports both :noweb strip-export 
+<<common_src>>
+<<auto_cor_estimation>>
+freqs = autoCorFreqEstimateOverTime('sing.wav')
+
+plt.plot(freqs)
+plt.savefig('a2autocor2.png')
+return 'a2autocor2.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:a2autocor2.png]]
+
+*** Qbhexamples.wav 
+#+begin_src python :results file :exports both :noweb strip-export 
+<<common_src>>
+<<auto_cor_estimation>>
+freqs = autoCorFreqEstimateOverTime('qbhexamples.wav')
+
+#plt.ylim([0,1000])
+plt.plot(freqs)
+plt.savefig('a2autocor3.png')
+return 'a2autocor3.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:a2autocor3.png]]
+
+** Comparison
+We look at the different results and their sums:
+ 
+*** Sin wave melody
+#+begin_src python :results file :exports both :noweb strip-export :tangle ass2/compare_f0_estimation.py 
+<<common_src>>
+<<wav_file_fft>>
+<<auto_cor_estimation>>
+dftfreqs = getBinFreq('melody.wav')  
+autofreqs = autoCorFreqEstimateOverTime('melody.wav')
+
+fig = plt.figure()
+ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
+plt.plot(dftfreqs, label='FFT based freq')
+plt.plot(autofreqs, label='Autocorrelation based freq')
+plt.plot(autofreqs+dftfreqs, label='Sum')
+plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+       ncol=2, mode="expand", borderaxespad=0.)
+plt.savefig('a2compare1.png')
+return 'a2compare1.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:a2compare1.png]]
+
+For the sin wave melody, both methods are fairly accurate with some differences between notes 
+*** Sung melody 
+#+begin_src python :results file :exports both :noweb strip-export 
+<<common_src>>
+<<wav_file_fft>>
+<<auto_cor_estimation>>
+dftfreqs = getBinFreq('sing.wav')  
+autofreqs = autoCorFreqEstimateOverTime('sing.wav')
+
+fig = plt.figure()
+ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
+plt.plot(dftfreqs, label='FFT based freq')
+plt.plot(autofreqs, label='Autocorrelation based freq')
+plt.plot(autofreqs+dftfreqs, label='Sum')
+plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+       ncol=2, mode="expand", borderaxespad=0.)
+plt.savefig('a2compare2.png')
+return 'a2compare2.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:a2compare2.png]]
+
+For the sung melody, neither method seems very accurate
+*** Qbhexamples melody 
+#+begin_src python :results file :exports both :noweb strip-export 
+<<common_src>>
+<<wav_file_fft>>
+<<auto_cor_estimation>>
+dftfreqs = getBinFreq('qbhexamples.wav')  
+autofreqs = autoCorFreqEstimateOverTime('qbhexamples.wav')
+
+fig = plt.figure()
+ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
+plt.plot(dftfreqs, label='FFT based freq')
+plt.plot(autofreqs, label='Autocorrelation based freq')
+plt.plot(autofreqs+dftfreqs, label='Sum')
+plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+       ncol=2, mode="expand", borderaxespad=0.)
+plt.savefig('a2compare3.png')
+return 'a2compare3.png'
+#+END_SRC
+
+#+RESULTS:
+[[file:a2compare3.png]]
+
+For qbhexamples, the autocorellation method seems slightly more accurate to the actual base frequencies, but both have massive spikes which for the most part happen at the same places.
+
+* Question #2
+#+NAME: centroid
+#+BEGIN_SRC python :noweb strip-export :exports code 
+def getCentroid(freqs):
+  fsum = 0
+  asum = 0
+  for freq in range(0,len(freqs)): 
+    amp = freqs[freq]
+    fsum += freq * amp * amp 
+    asum += amp * amp 
+  return fsum / asum
+#+END_SRC
+
+#+NAME: centroid_read
+#+BEGIN_SRC python :noweb strip-export :exports code :tangle ass2/centroid.py 
+<<read_wav>>
+<<centroid>>
+def getCentroidOverTime(filename):
+    samples = readWavSamples(filename)
+    frameNum = 2048
+    
+    centroids = numpy.zeros(len(samples)/frameNum + 1)
+    cur = 0
+    i = 0
+    
+    while cur < len(samples):
+       workingFrames = samples[cur:cur+2048]
+       fft = numpy.fft.fft(workingFrames, frameNum)
+       fft = fft / len(fft)
+       rCount = len(fft) / 2
+       realFft = numpy.abs(fft[:rCount])*2
+       centroids[i] = getCentroid(realFft)
+       cur += frameNum
+       i += 1
+    return centroids * 44100 / frameNum
+    
+#+END_SRC
+
+#+NAME: sin_create
+#+BEGIN_SRC python :noweb strip-export :exports code 
+<<common_src>>
+fs = 44100 # sample rate
+
+def sinWave(frequency, amplitude, phase=0, duration = 1.0):
+    print phase
+    sNum = fs * duration
+    x = numpy.arange(sNum)
+    return amplitude * numpy.sin(2*numpy.pi*frequency*x/fs + phase)
+#+END_SRC
+
+#+NAME: generate_audio
+#+BEGIN_SRC python :noweb strip-export :exports code 
+  import wave
+  import struct
+
+  def saveWav(samples, filename):
+      wavFile = wave.open(filename, "w")
+      nchannels = 1
+      sampwidth = 2
+      nframes = len(samples)
+      comptype = "NONE"
+      compname = "not compressed"
+      wavFile.setparams((nchannels, sampwidth, fs, nframes, comptype, compname))
+
+      for sample in samples:
+          clampedSample = numpy.median([sample, -1.0, 1.0])
+          #clampedSample = sample
+          wavFile.writeframes(struct.pack('h', int(16384.0*clampedSample)))
+
+      wavFile.close()
+#+END_SRC
+
+** Sonification 
+#+NAME: centroid_sonify
+#+BEGIN_SRC python :noweb strip-export :exports code :tangle ass2/sonify_centroid.py
+<<centroid_read>>
+<<sin_create>>
+<<generate_audio>>
+
+def getSonifiedCentroid(centroids, outfile):
+  frameNum = len(centroids)
+  frameLen = 2048
+  samples = numpy.zeros(frameNum * frameLen)
+  phase = 0 
+  for i in range (0,frameNum):
+    dur = float(frameLen) / 44100
+    s = sinWave(centroids[i], 1.0, phase, dur) 
+    samples[i*frameLen:(i+1)*frameLen] = s
+    sampleLength = (44100/centroids[i])
+    phase += ((2048 % sampleLength) / sampleLength) * (2*numpy.pi)
+    phase = phase % (2*numpy.pi)
+
+  saveWav(samples, outfile)
+#+END_SRC 
+
+*** Sin wave melody
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_read>>
+centroids = getCentroidOverTime("melody.wav")
+
+plt.plot(centroids)
+plt.savefig('a2centroid1.png')
+return 'a2centroid1.png'
+#+END_SRC 
+
+#+RESULTS:
+[[file:a2centroid1.png]]
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_sonify>>
+
+fname = "melodyCentroid.wav"
+centroid = getCentroidOverTime("melody.wav")
+getSonifiedCentroid(centroid, fname)
+return fname
+#+END_SRC
+
+#+RESULTS:
+[[file:melodyCentroid.wav]]
+
+The centroid sounds like a distorted version of the melody. 
+*** Sung melody  
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_read>>
+centroids = getCentroidOverTime("sing.wav")
+
+plt.plot(centroids)
+plt.savefig('a2centroid2.png')
+return 'a2centroid2.png'
+#+END_SRC 
+
+#+RESULTS:
+[[file:a2centroid2.png]]
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_sonify>>
+
+fname = "singCentroid.wav"
+centroid = getCentroidOverTime("sing.wav")
+getSonifiedCentroid(centroid, fname)
+return fname
+#+END_SRC
+
+#+RESULTS:
+[[file:singCentroid.wav]]
+
+This centroid sounds higher, but relatively static with two blips, as the plot would suggest.
+
+*** Qbhexamples 
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_read>>
+centroids = getCentroidOverTime("qbhexamples.wav")
+
+plt.plot(centroids)
+plt.savefig('a2centroid3.png')
+return 'a2centroid3.png'
+#+END_SRC 
+
+#+RESULTS:
+[[file:a2centroid3.png]]
+
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_sonify>>
+
+fname = "qbhCentroid.wav"
+centroid = getCentroidOverTime("qbhexamples.wav")
+getSonifiedCentroid(centroid, fname)
+return fname
+#+END_SRC
+
+#+RESULTS:
+[[file:qbhCentroid.wav]]
+
+This sounds very traditionally robotic, and it's hard to really distinguish a connection with the original sound but you can hear the increasing pitches when the song goes "Better, Better, Beeetter". 
+
+** Music genres
+*** Basic centroids for classical and metal
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_read>>
+centroids = getCentroidOverTime("classical.00001.wav")
+
+plt.plot(centroids)
+plt.savefig('a2centroidClassical.png')
+return 'a2centroidClassical.png'
+#+END_SRC 
+
+#+RESULTS:
+[[file:a2centroidClassical.png]]
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_sonify>>
+
+fname = "classicalCentroid.wav"
+centroid = getCentroidOverTime("classical.00001.wav")
+getSonifiedCentroid(centroid, fname)
+return fname
+#+END_SRC
+
+#+RESULTS:
+[[file:classicalCentroid.wav]]
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_read>>
+centroids = getCentroidOverTime("metal.00001.wav")
+
+plt.plot(centroids)
+plt.savefig('a2centroidMetal.png')
+return 'a2centroidMetal.png'
+#+END_SRC 
+
+#+RESULTS:
+[[file:a2centroidMetal.png]]
+
+This centroid has much quicker movements up and down than the classical centroid
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<centroid_sonify>>
+
+fname = "metalCentroid.wav"
+centroid = getCentroidOverTime("metal.00001.wav")
+getSonifiedCentroid(centroid, fname)
+return fname
+#+END_SRC
+
+#+RESULTS:
+[[file:metalCentroid.wav]]
+*** Smooth contour 
+
+#+NAME: smooth_centroid
+#+BEGIN_SRC python :noweb strip-export :exports code 
+<<centroid_read>>
+def getSmoothCentroid(fname):
+  centroid = getCentroidOverTime(fname)
+  smooth = numpy.zeros(len(centroid))
+  smooth[0] = centroid[0]
+  for i in range(1, len(centroid)):
+    minval = i - 20
+    if minval < 0:
+      minval = 0
+    smooth[i] = numpy.average(centroid[minval:i])
+  return smooth
+
+#+END_SRC
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<smooth_centroid>>
+centroids = getSmoothCentroid("classical.00001.wav")
+
+plt.plot(centroids)
+plt.savefig('a2smoothCentroidClassical.png')
+return 'a2smoothCentroidClassical.png'
+#+END_SRC 
+
+#+RESULTS:
+[[file:a2smoothCentroidClassical.png]]
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<smooth_centroid>>
+<<centroid_sonify>>
+
+fname = "classicalSmoothCentroid.wav"
+centroid = getSmoothCentroid("classical.00001.wav")
+print centroid
+getSonifiedCentroid(centroid, fname)
+return fname
+#+END_SRC
+
+#+RESULTS:
+[[file:classicalSmoothCentroid.wav]]
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<smooth_centroid>>
+centroids = getSmoothCentroid("metal.00001.wav")
+
+plt.plot(centroids)
+plt.savefig('a2smoothCentroidMetal.png')
+return 'a2smoothCentroidMetal.png'
+#+END_SRC 
+
+#+RESULTS:
+[[file:a2smoothCentroidMetal.png]]
+
+#+begin_src python :results file :exports both :noweb strip-export 
+<<smooth_centroid>>
+<<centroid_sonify>>
+
+fname = "metalSmoothCentroid.wav"
+centroid = getSmoothCentroid("metal.00001.wav")
+getSonifiedCentroid(centroid, fname)
+return fname
+#+END_SRC
+
+#+RESULTS:
+[[file:metalSmoothCentroid.wav]]
+
+
+Both smoothed centroids show much more clearly changes in averages over time, with clear peaks and valleys. The smoothed metal centroid clearly has more visual movement throughout the 30 second piece. The peaks are much bigger. When listening, the classical centroid sounds much smoother. 

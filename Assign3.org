@@ -1,0 +1,149 @@
+* Q1
+** Weka
+Extraction:
+#+BEGIN_SRC bash 
+mkcollection -c jazz.mf -l jazz jazz
+Writing collectionName = jazz into file jazz.mf
+
+mkcollection -c metal.mf -l metal metal
+Writing collectionName = metal into file metal.mf
+
+mkcollection -c pop.mf -l pop pop
+Writing collectionName = pop into file pop.mf
+
+cat metal.mf jazz.mf pop.mf > genres3.mf
+
+bextract -sv genres3.mf -w genres3.arff
+#+END_SRC
+
+Weka:
+#+BEGIN_SRC 
+ZeroR
+Correctly Classified Instances         100               33.3333 %
+=== Confusion Matrix ===
+
+   a   b   c   <-- classified as
+ 100   0   0 |   a = jazz
+ 100   0   0 |   b = metal
+ 100   0   0 |   c = pop
+
+
+NaiveBayes
+Correctly Classified Instances         257               85.6667 %
+=== Confusion Matrix ===
+
+  a  b  c   <-- classified as
+ 92  6  2 |  a = jazz
+  9 86  5 |  b = metal
+ 12  9 79 |  c = pop
+
+
+J48
+Correctly Classified Instances         249               83      %
+=== Confusion Matrix ===
+
+  a  b  c   <-- classified as
+ 79 14  7 |  a = jazz
+  5 86  9 |  b = metal
+  9  7 84 |  c = pop
+
+
+SMO
+Correctly Classified Instances         285               95      %
+=== Confusion Matrix ===
+
+  a  b  c   <-- classified as
+ 94  3  3 |  a = jazz
+  1 97  2 |  b = metal
+  0  6 94 |  c = pop
+#+END_SRC
+** Scikit-Learn 
+#+NAME: common_src
+#+BEGIN_SRC python :exports code
+import matplotlib
+import numpy as np
+#+END_SRC
+
+#+NAME: load_libsvm
+#+BEGIN_SRC python :exports code
+import sklearn.datasets as skld 
+
+def load_libsvm(path):
+    data = skld.load_svmlight_file(path)
+    return data[0], data[1]
+
+#+END_SRC
+
+#+NAME: get_data
+#+begin_src python :results output :exports both :noweb strip-export 
+<<load_libsvm>>
+X, y = load_libsvm("genres/genres3.libsvm")
+#+END_SRC
+
+#+NAME: k_fold
+#+begin_src python :results output :exports both :noweb strip-export :tangle ass3/k_fold.py 
+  <<common_src>>
+  from sklearn.model_selection import KFold
+
+  def kFold(classifier, X, y, k):
+      kf = KFold(n_splits=k)
+      Y = np.zeros(X.shape[0])
+      for train_index, test_index in kf.split(X):
+          X_test = X[test_index]
+          X_train = X[train_index]
+          y_train = y[train_index]
+          classifier.fit(X_train,y_train)
+          y_pred = classifier.predict(X_test)
+          Y[test_index] = y_pred
+      return Y
+#+end_src
+
+#+NAME: print_stats
+#+BEGIN_SRC python :results output :exports both :noweb strip-export :tangle ass3/print_classification_stats.py
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
+
+def printStats(y_true,y_pred):
+  print("Accuracy: " + str(100*accuracy_score(y_true, y_pred)) + "%")
+  print confusion_matrix(y_true, y_pred)
+#+END_SRC
+
+#+NAME: base_classify 
+#+begin_src python :results output :exports code :noweb strip-export
+<<get_data>>
+<<k_fold>>
+<<print_stats>>
+
+np.random.seed(0)
+indices = np.random.permutation(X.shape[0])
+X = X[indices]
+y = y[indices]
+
+
+#+END_SRC
+
+#+NAME: nearest_neighboor
+#+begin_src python :results output :exports both :noweb strip-export :tangle ass3/nearest_neighboor.py 
+<<base_classify>>
+from sklearn.neighbors import KNeighborsClassifier
+knn = KNeighborsClassifier()
+
+Y=kFold(knn,X,y,10)
+printStats(y,Y)
+#+end_src
+
+#+RESULTS: nearest_neighboor
+: Accuracy: 81.6666666667%
+: [[83  5 12]
+:  [ 5 85 10]
+:  [15  8 77]]
+
+#+NAME: decision_tree 
+#+begin_src python :results output :exports both :noweb strip-export :tangle ass3/decision_tree.py
+<<base_classify>>
+from sklearn.tree import DecisionTreeClassifier
+dct = DecisionTreeClassifier(max_depth=5)
+
+Y=kFold(dct,X,y,10)
+printStats(y,Y)
+#+end_src
