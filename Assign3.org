@@ -147,3 +147,29 @@ dct = DecisionTreeClassifier(max_depth=5)
 Y=kFold(dct,X,y,10)
 printStats(y,Y)
 #+end_src
+
+#+RESULTS: decision_tree
+: Accuracy: 87.6666666667%
+: [[88  6  6]
+:  [11 84  5]
+:  [ 5  4 91]]
+
+#+NAME: mlp
+#+begin_src python :results output :exports both :noweb strip-export :tangle ass3/naive_bayes.py
+<<base_classify>>
+from sklearn.neural_network import MLPClassifier
+mlp = MLPClassifier(alpha=10) 
+
+Y=kFold(mlp,X,y,10)
+printStats(y,Y)
+#+end_src
+
+#+RESULTS: mlp
+: Accuracy: 80.3333333333%
+: [[79 11 10]
+:  [ 2 82 16]
+:  [10 10 80]]
+* Q2 
+
+
+
