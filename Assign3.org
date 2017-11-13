@@ -170,6 +170,307 @@ printStats(y,Y)
 :  [ 2 82 16]
 :  [10 10 80]]
 * Q2 
+** Loading Data
+#+name: load_data
+#+begin_src python :results output :exports code :noweb strip-export :tangle ass3/load_data.py 
+<<common_src>>
+import pickle
 
+data = np.load('data/data.npz')
+a = data['arr_0']
+# reduce the problem to whether or not the word occurs instead of how many
+a[a > 0] = 1
 
+a = a[0:3000,:] 
+rap_rows = a[0:1000,:]
+rock_rows = a[1000:2000,:]
+country_rows = a[2000:3000,:] 
 
+labels = np.load('data/labels.npz')
+labels = labels['arr_0'] 
+
+dictionary = pickle.load(open('data/dictionary.pck','rb'))
+word_indices = np.load('data/words.npz')['arr_0']
+words = [dictionary[r] for r in word_indices]
+
+tracks = pickle.load(open('data/tracks.pck','rb'))
+
+#+END_SRC
+** Probabilities of words 
+#+name: get_word_probs
+#+begin_src python :results output :exports code :noweb strip-export
+def get_word_probs(occur):
+  return (occur.sum(axis=0).astype(float) + 1.0) / (len(occur)+1.0)
+#+END_SRC
+
+#+name: word_probs
+#+begin_src python :results output :exports code :noweb strip-export :tangle ass3/word_probs.py 
+<<load_data>>
+<<get_word_probs>>
+
+word_probs_rap = get_word_probs(rap_rows)
+word_probs_rock = get_word_probs(rock_rows)
+word_probs_country = get_word_probs(country_rows)
+
+#+end_src
+
+#+name: print_word_probs
+#+begin_src python :results output :exports both :noweb strip-export :tangle ass3/word_probs.py 
+<<word_probs>>
+print "rap results:"
+for w in zip(word_probs_rap, words): 
+    print(w)
+print "rock results:"
+for w in zip(word_probs_rock, words): 
+    print(w)
+print "country results:"
+for w in zip(word_probs_country, words): 
+    print(w)
+#+end_src
+
+#+RESULTS: print_word_probs
+#+begin_example
+rap results:
+(0.087912087912087919, 'de')
+(0.18581418581418582, 'niggaz')
+(0.43956043956043955, 'ya')
+(0.062937062937062943, 'und')
+(0.28271728271728269, 'yall')
+(0.057942057942057944, 'ich')
+(0.41258741258741261, 'fuck')
+(0.50849150849150848, 'shit')
+(0.41158841158841158, 'yo')
+(0.3126873126873127, 'bitch')
+(0.17982017982017981, 'end')
+(0.11688311688311688, 'wait')
+(0.17182817182817184, 'again')
+(0.1968031968031968, 'light')
+(0.23276723276723277, 'eye')
+(0.12087912087912088, 'noth')
+(0.11188811188811189, 'lie')
+(0.14185814185814186, 'fall')
+(0.21478521478521478, 'our')
+(0.16283716283716285, 'away')
+(0.17382617382617382, 'gone')
+(0.26973026973026976, 'good')
+(0.22477522477522477, 'night')
+(0.095904095904095904, 'blue')
+(0.18981018981018982, 'home')
+(0.18381618381618381, 'long')
+(0.24175824175824176, 'littl')
+(0.21378621378621379, 'well')
+(0.16483516483516483, 'heart')
+(0.14185814185814186, 'old')
+rock results:
+(0.03796203796203796, 'de')
+(0.006993006993006993, 'niggaz')
+(0.045954045954045952, 'ya')
+(0.031968031968031968, 'und')
+(0.006993006993006993, 'yall')
+(0.026973026973026972, 'ich')
+(0.087912087912087919, 'fuck')
+(0.04095904095904096, 'shit')
+(0.022977022977022976, 'yo')
+(0.01898101898101898, 'bitch')
+(0.19980019980019981, 'end')
+(0.18981018981018982, 'wait')
+(0.22077922077922077, 'again')
+(0.19980019980019981, 'light')
+(0.30869130869130867, 'eye')
+(0.19180819180819181, 'noth')
+(0.18581418581418582, 'lie')
+(0.22377622377622378, 'fall')
+(0.23776223776223776, 'our')
+(0.3206793206793207, 'away')
+(0.15384615384615385, 'gone')
+(0.15784215784215785, 'good')
+(0.26473526473526471, 'night')
+(0.063936063936063936, 'blue')
+(0.16083916083916083, 'home')
+(0.17882117882117882, 'long')
+(0.14785214785214784, 'littl')
+(0.1968031968031968, 'well')
+(0.26073926073926074, 'heart')
+(0.1108891108891109, 'old')
+country results:
+(0.006993006993006993, 'de')
+(0.003996003996003996, 'niggaz')
+(0.051948051948051951, 'ya')
+(0.000999000999000999, 'und')
+(0.01998001998001998, 'yall')
+(0.000999000999000999, 'ich')
+(0.0089910089910089919, 'fuck')
+(0.011988011988011988, 'shit')
+(0.012987012987012988, 'yo')
+(0.005994005994005994, 'bitch')
+(0.14385614385614387, 'end')
+(0.13986013986013987, 'wait')
+(0.20979020979020979, 'again')
+(0.18981018981018982, 'light')
+(0.26173826173826176, 'eye')
+(0.12487512487512488, 'noth')
+(0.095904095904095904, 'lie')
+(0.17082917082917082, 'fall')
+(0.20679320679320679, 'our')
+(0.26973026973026976, 'away')
+(0.20379620379620381, 'gone')
+(0.27372627372627373, 'good')
+(0.37362637362637363, 'night')
+(0.16083916083916083, 'blue')
+(0.25674325674325676, 'home')
+(0.31468531468531469, 'long')
+(0.31168831168831168, 'littl')
+(0.3206793206793207, 'well')
+(0.37162837162837165, 'heart')
+(0.29570429570429568, 'old')
+#+end_example
+
+** Naive Bayes Classifier 
+#+name: likelyhood
+#+begin_src python :results output :exports code :noweb strip-export
+def likelihood(test_song, word_probs_for_genre): 
+    probability_product = 1.0 
+    for (i,w) in enumerate(test_song): 
+        if (w==1): 
+            probability = word_probs_for_genre[i]
+        else: 
+            probability = 1.0 - word_probs_for_genre[i]
+        probability_product *= probability 
+    return probability_product
+#+end_src
+
+#+name: predict
+#+begin_src python :results output :exports code :noweb strip-export
+<<likelyhood>>
+def predict(test_song, probs): 
+    probs = [likelihood(test_song, probs[0]), 
+             likelihood(test_song, probs[1]),
+             likelihood(test_song, probs[2])]
+    return np.argmax(probs)
+#+end_src
+
+#+name: classify
+#+begin_src python :results output :exports code :noweb strip-export
+  <<predict>>
+  def classify(X, y, probs):
+      matrix = np.zeros((3,3)) 
+      accCount = 0
+      for (i,song) in enumerate(X):
+          prediction = predict(song,probs)
+          matrix[y[i]][prediction] += 1
+          if(y[i] == prediction):
+              accCount += 1
+
+      accuracy = float(accCount) / float(len(y))
+      return matrix, accuracy
+#+end_src
+
+#+name: get_y
+#+begin_src python :results output :exports code :noweb strip-export
+rapY = np.full(1000,0,dtype=np.int) 
+rockY = np.full(1000,1,dtype=np.int)
+countryY = np.full(1000,2,dtype=np.int) 
+y = np.concatenate((rapY, rockY, countryY))
+#+end_src
+
+#+name: classify_and_test_all
+#+begin_src python :results output :exports both :noweb strip-export :tangle ass3/classify_all_lyrics.py
+<<word_probs>>
+<<classify>>
+<<get_y>>
+probs = (word_probs_rap,word_probs_rock,word_probs_country)
+matrix, acc = classify(a[0:3000,:],y,probs)
+print acc
+print matrix
+#+end_src
+
+#+RESULTS: classify_and_test_all
+: 0.696333333333
+: [[ 749.  156.   95.]
+:  [  63.  631.  306.]
+:  [  27.  264.  709.]]
+** Cross-validation
+#+name: k_fold
+#+begin_src python :results output :exports both :noweb strip-export :tangle ass3/classify_kfold_lyrics.py
+<<load_data>>
+<<get_word_probs>>
+<<classify>>
+rap_indices = np.random.permutation(len(rap_rows))
+rock_indices = np.random.permutation(len(rock_rows))
+country_indices = np.random.permutation(len(country_rows))
+r_rap = rap_rows[rap_indices]
+r_rock = rock_rows[rock_indices]
+r_country = country_rows[country_indices]
+totalMatrix = np.zeros((3,3))
+for i in range(0,10):
+  t_rap_probs = get_word_probs(np.concatenate((r_rap[0:(i*100)], r_rap[(i+1)*100:999])))
+  t_rock_probs = get_word_probs(np.concatenate((r_rock[0:(i*100)], r_rock[(i+1)*100:999])))
+  t_country_probs = get_word_probs(np.concatenate((r_country[0:(i*100)], r_country[(i+1)*100:999])))
+  probs = (t_rap_probs,t_rock_probs,t_country_probs)
+
+  testX = np.concatenate((r_rap[i*100:(i+1)*100], r_rock[i*100:(i+1)*100], r_country[i*100:(i+1)*100]))
+
+  rapY = np.full(100,0,dtype=np.int) 
+  rockY = np.full(100,1,dtype=np.int)
+  countryY = np.full(100,2,dtype=np.int) 
+  testY = np.concatenate((rapY, rockY, countryY)) 
+
+  matrix, acc = classify(testX, testY, probs)
+  totalMatrix += matrix
+acc = (totalMatrix[0,0] + totalMatrix[1,1] + totalMatrix[2,2]) / 3000
+print acc
+print totalMatrix 
+#+end_Src
+
+#+RESULTS: k_fold
+: 0.691666666667
+: [[ 744.  162.   94.]
+:  [  63.  628.  309.]
+:  [  28.  269.  703.]]
+
+** Generation 
+#+name: generate_random_lyrics
+#+begin_src python :results output :exports code :noweb strip-export
+def generateRandomLyrics(word_probs, words):
+  # words in random order
+  indices = np.random.permutation(len(words))
+  r_probs = word_probs[indices]
+  r_words = np.array(words)[indices]
+
+  # pick words
+  s = ""
+  r = np.random.rand(30)
+  for (i,word) in enumerate(r_words):
+    if r[i] < r_probs[i]:
+      s += word + " " 
+  return s
+#+end_src
+
+#+name: generate_lyrics_example
+#+begin_src python :results output :exports both :noweb strip-export :tangle ass3/generate_random_lyrics.py
+<<word_probs>>
+<<generate_random_lyrics>>
+for i in range(0,5):
+  print "rap sample: " + generateRandomLyrics(word_probs_rap, words) 
+  print "rock sample: " + generateRandomLyrics(word_probs_rock, words) 
+  print "country sample: " + generateRandomLyrics(word_probs_country, words) 
+#+end_Src
+
+#+RESULTS: generate_lyrics_example
+#+begin_example
+rap sample: shit de blue littl our yo 
+rock sample: well noth 
+country sample: night noth end old eye 
+rap sample: fall away shit yall long well ya good lie fuck 
+rock sample: old wait again long 
+country sample: long littl heart 
+rap sample: niggaz well away eye wait 
+rock sample: eye heart old again our 
+country sample: fall good heart 
+rap sample: yo bitch ya home shit 
+rock sample: again eye noth 
+country sample: long blue well eye littl 
+rap sample: shit eye yall again gone light fuck 
+rock sample: niggaz end gone well away fall noth 
+country sample: littl noth well away lie home night 
+#+end_example
